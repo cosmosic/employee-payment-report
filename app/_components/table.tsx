@@ -17,7 +17,7 @@ import useViewportHeightLeft from "./viewport_height";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 
-export interface SimpleColumnDef<T> {
+export interface SimpleColumnDef<T extends Record<string, unknown>> {
   header: React.ReactNode;
   accessorKey?: keyof T;
   cell?: (value: T[keyof T] | undefined, row: T) => React.ReactNode;
@@ -28,7 +28,7 @@ export interface SimpleColumnDef<T> {
   linkPattern?: string;
 }
 
-interface TableProps<T> {
+interface TableProps<T extends Record<string, unknown>> {
   data: T[];
   columns: SimpleColumnDef<T>[];
   allowOrderBy?: boolean;
@@ -130,7 +130,12 @@ export function DataGridShadcn<T extends Record<string, unknown>>({
                 }}
               >
                 <div className="flex items-center px-4 py-2 gap-1">
-                  <div className={cn("truncate", allowOrderBy && !column.disableSorting && "cursor-pointer")}>
+                  <div
+                    className={cn(
+                      "truncate",
+                      allowOrderBy && !column.disableSorting && "cursor-pointer"
+                    )}
+                  >
                     {column.header}
                   </div>
                   {allowOrderBy && !column.disableSorting && column.accessorKey && (

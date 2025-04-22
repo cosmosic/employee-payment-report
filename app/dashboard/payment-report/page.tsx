@@ -16,7 +16,6 @@ interface RowData extends Record<string, unknown> {
   difference: number | string;
 }
 
-
 export default function PaymentReportPage() {
   const { employees, fetchEmployees } = useEmployeeStore();
 
@@ -24,60 +23,95 @@ export default function PaymentReportPage() {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  const rows: RowData[] = [];
+  const processEmployeeData = () => {
+    const rows: RowData[] = [];
 
-  employees.forEach((emp) => {
-    const collections = [...emp.collections].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    const deposits = [...emp.deposits].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    employees.forEach((emp) => {
+      // Sort collections and deposits by date
+      const collections = [...emp.collections].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
+      const deposits = [...emp.deposits].sort(
+        (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+      );
 
-    let depositIndex = 0;
+      let depositIndex = 0;
+      let remainingFromPrevious = 0;
 
-    for (let i = 0; i < collections.length; i++) {
-      const col = collections[i];
-      let remaining = col.amount;
-      const depositRows: RowData[] = [];
+      collections.forEach((col) => {
+        let remaining = col.amount + remainingFromPrevious;
+        remainingFromPrevious = 0;
 
-      while (remaining > 0 && depositIndex < deposits.length) {
-        const dep = deposits[depositIndex];
-        const usedAmount = Math.min(dep.amount, remaining);
-
-        depositRows.push({
-          location: emp.location,
-          empId: emp.id,
-          name: emp.name,
-          collectionAmount: depositRows.length === 0 ? col.amount : "",
-          collectionDate: depositRows.length === 0 ? col.date : "",
-          depositAmount: usedAmount,
-          depositDate: dep.date,
-          difference: "", // placeholder
-        });
-
-        remaining -= usedAmount;
-        dep.amount -= usedAmount;
-
-        if (dep.amount === 0) {
-          depositIndex++;
-        }
-      }
-
-      if (depositRows.length > 0) {
-        depositRows[depositRows.length - 1].difference = remaining > 0 ? remaining : 0;
-        rows.push(...depositRows);
-      } else {
-        rows.push({
+        // Create initial row for the collection
+        const initialRow: RowData = {
           location: emp.location,
           empId: emp.id,
           name: emp.name,
           collectionAmount: col.amount,
           collectionDate: col.date,
-          depositAmount: 0,
-          depositDate: "-",
+          depositAmount: "",
+          depositDate: "",
           difference: col.amount,
-        });
-      }
-    }
-  });
+        };
 
+        rows.push(initialRow);
+
+        // Apply deposits to this collection
+        while (remaining > 0 && depositIndex < deposits.length) {
+          const dep = deposits[depositIndex];
+          const appliedAmount = Math.min(dep.amount, remaining);
+
+          const depositRow: RowData = {
+            location: emp.location,
+            empId: emp.id,
+            name: emp.name,
+            collectionAmount: "",
+            collectionDate: "",
+            depositAmount: appliedAmount,
+            depositDate: dep.date,
+            difference: remaining - appliedAmount,
+          };
+
+          rows.push(depositRow);
+
+          remaining -= appliedAmount;
+          dep.amount -= appliedAmount;
+
+          if (dep.amount === 0) {
+            depositIndex++;
+          }
+        }
+
+        if (remaining > 0) {
+          remainingFromPrevious = remaining;
+        }
+      });
+
+      // Handle any remaining deposits that weren't applied to any collection
+      while (depositIndex < deposits.length) {
+        const dep = deposits[depositIndex];
+        const depositRow: RowData = {
+          location: emp.location,
+          empId: emp.id,
+          name: emp.name,
+          collectionAmount: "",
+          collectionDate: "",
+          depositAmount: dep.amount,
+          depositDate: dep.date,
+          difference: -dep.amount,
+        };
+
+        rows.push(depositRow);
+        depositIndex++;
+      }
+    });
+
+    return rows;
+  };
+
+  const rows = processEmployeeData();
+
+  // Calculate summary values
   const totalCollection = employees.reduce(
     (sum, emp) => sum + emp.collections.reduce((s, c) => s + c.amount, 0),
     0
@@ -92,11 +126,27 @@ export default function PaymentReportPage() {
     { header: "Location", accessorKey: "location" },
     { header: "Employee ID", accessorKey: "empId" },
     { header: "Employee Name", accessorKey: "name" },
-    { header: "Collection Amount", accessorKey: "collectionAmount" },
-    { header: "Collection Date", accessorKey: "collectionDate" },
-    { header: "Deposit Amount", accessorKey: "depositAmount" },
+    { 
+      header: "Collections (MM)", 
+      accessorKey: "collectionAmount",
+      cell: (value) => value === "" ? "" : `₹${Number(value).toLocaleString()}`
+    },
+    { header: "Date", accessorKey: "collectionDate" },
+    { 
+      header: "Cash Deposit", 
+      accessorKey: "depositAmount",
+      cell: (value) => value === "" ? "" : `₹${Number(value).toLocaleString()}`
+    },
     { header: "Deposit Date", accessorKey: "depositDate" },
-    { header: "Difference", accessorKey: "difference" },
+    { 
+      header: "Difference", 
+      accessorKey: "difference",
+      cell: (value) => {
+        const numValue = Number(value);
+        if (isNaN(numValue)) return "";
+        return `₹${Math.abs(numValue).toLocaleString()} ${numValue >= 0 ? "" : "(over)"}`;
+      }
+    },
   ];
 
   return (
