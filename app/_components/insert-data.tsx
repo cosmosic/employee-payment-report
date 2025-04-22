@@ -12,6 +12,15 @@ import { Label } from "@/components/ui/label";
 import { useEffect, useState } from "react";
 import { useEmployeeStore } from "../lib/store";
 
+export interface Employee extends Record<string, unknown> {
+  id: number;
+  name: string;
+  location: string;
+  collections: { amount: number; date: string }[];
+  deposits: { amount: number; date: string }[];
+}
+
+
 export function InsertEmployeeDataModal() {
   const [open, setOpen] = useState(false);
   const [employeeName, setEmployeeName] = useState("");
@@ -22,20 +31,29 @@ export function InsertEmployeeDataModal() {
   const [depositDate, setDepositDate] = useState("");
   const { fetchEmployees } = useEmployeeStore();
 
-  const [employees, setEmployees] = useState<{ id: number; name: string }[]>([]);
+  const [employees, setEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
     fetch("/api/employees")
       .then((res) => res.json())
-      .then((data) => {
+      .then((data: Employee[]) => {
         if (Array.isArray(data)) {
-          setEmployees(data.map((emp: any) => ({ id: emp.id, name: emp.name })));
+          setEmployees(
+            data.map((emp) => ({
+              id: emp.id,
+              name: emp.name,
+              location: emp.location,
+              collections: emp.collections ?? [],
+              deposits: emp.deposits ?? [],
+            }))
+          );
         } else {
           console.error("Expected array but got:", data);
         }
       })
       .catch((err) => console.error("Failed to fetch employees:", err));
   }, []);
+  
   
 
   const handleSubmit = async () => {
@@ -66,6 +84,12 @@ export function InsertEmployeeDataModal() {
     }
 
     // 3. Insert MM + Deposit entries
+    if (!employee) {
+      alert("Employee creation failed.");
+      return;
+    }
+    
+    // Now it's safe to use employee.id
     await fetch("/api/entries", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -75,6 +99,7 @@ export function InsertEmployeeDataModal() {
         deposit: { amount: Number(depositAmount), date: depositDate },
       }),
     });
+    
 
     // 4. Refresh data and reset
     await fetchEmployees();

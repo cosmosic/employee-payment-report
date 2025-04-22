@@ -6,6 +6,15 @@ import DataGridShadcn, { SimpleColumnDef } from "@/app/_components/table";
 import { SummaryCard } from "@/app/_components/summary_card";
 import { InsertEmployeeDataModal } from "@/app/_components/insert-data";
 
+// Define compatible row type
+interface RowData extends Record<string, unknown> {
+  id: number;
+  name: string;
+  location: string;
+  collections: { amount: number; date: string }[];
+  deposits: { amount: number; date: string }[];
+}
+
 export default function OutstandingReportPage() {
   const { employees, fetchEmployees } = useEmployeeStore();
 
@@ -13,7 +22,7 @@ export default function OutstandingReportPage() {
     fetchEmployees();
   }, [fetchEmployees]);
 
-  const columns: SimpleColumnDef<typeof employees[0]>[] = [
+  const columns: SimpleColumnDef<RowData>[] = [
     { header: "Employee Name", accessorKey: "name" },
     { header: "Location", accessorKey: "location" },
     {
@@ -42,19 +51,14 @@ export default function OutstandingReportPage() {
     },
   ];
 
-  const totalCollection = Array.isArray(employees)
-  ? employees.reduce(
-      (sum, e) => sum + e.collections.reduce((s, c) => s + c.amount, 0),
-      0
-    )
-  : 0;
-
-const totalDeposit = Array.isArray(employees)
-  ? employees.reduce(
-      (sum, e) => sum + e.deposits.reduce((s, d) => s + d.amount, 0),
-      0
-    )
-  : 0;
+  const totalCollection = employees.reduce(
+    (sum, e) => sum + e.collections.reduce((s, c) => s + c.amount, 0),
+    0
+  );
+  const totalDeposit = employees.reduce(
+    (sum, e) => sum + e.deposits.reduce((s, d) => s + d.amount, 0),
+    0
+  );
 
   return (
     <div className="p-6">
@@ -69,7 +73,8 @@ const totalDeposit = Array.isArray(employees)
         <InsertEmployeeDataModal />
       </div>
 
-      <DataGridShadcn data={employees} columns={columns} />
+      <DataGridShadcn<RowData> data={employees as RowData[]} columns={columns} />
+
     </div>
   );
 }

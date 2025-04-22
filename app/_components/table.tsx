@@ -15,8 +15,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import useViewportHeightLeft from "./viewport_height";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
-export interface SimpleColumnDef<T extends Record<string, any>> {
+export interface SimpleColumnDef<T> {
   header: React.ReactNode;
   accessorKey?: keyof T;
   cell?: (value: T[keyof T] | undefined, row: T) => React.ReactNode;
@@ -27,31 +28,25 @@ export interface SimpleColumnDef<T extends Record<string, any>> {
   linkPattern?: string;
 }
 
-interface TableProps<T extends Record<string, any>> {
+interface TableProps<T> {
   data: T[];
   columns: SimpleColumnDef<T>[];
   allowOrderBy?: boolean;
   orderBy?: string | null;
-  onOrderByChange?: (_: string) => void;
+  onOrderByChange?: (key: string) => void;
   allowRowSelection?: boolean;
-  onSelectedRowIndicesChange?: (_: number[]) => void;
-  pageSizeOptions?: number[];
-  defaultPageSize?: number;
+  onSelectedRowIndicesChange?: (indices: number[]) => void;
 }
 
-
-export function DataGridShadcn<T extends Record<string, any>>({
+export function DataGridShadcn<T extends Record<string, unknown>>({
   data,
   columns,
   allowOrderBy = false,
   orderBy = null,
-  onOrderByChange = (_: string) => {},
+  onOrderByChange = () => {},
   allowRowSelection = false,
-  onSelectedRowIndicesChange = (_: number[]) => {},
-  defaultPageSize = 1,
-  pageSizeOptions = [10, 20, 50],
+  onSelectedRowIndicesChange = () => {},
 }: TableProps<T>) {
-
   const router = useRouter();
   const tableRef = useRef<HTMLDivElement>(null);
   const { height: tableHeight } = useViewportHeightLeft(tableRef);
@@ -59,20 +54,12 @@ export function DataGridShadcn<T extends Record<string, any>>({
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [isDescSort, setIsDescSort] = useState<boolean>(false);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
-  const [pageSize, setPageSize] = useState(defaultPageSize || 10);
-  const [page, setPage] = useState(1);
-  
-  const totalPages = Math.ceil(data.length / pageSize);
-  const paginatedData = useMemo(
-    () => data.slice((page - 1) * pageSize, page * pageSize),
-    [data, page, pageSize]
-  );
-  
+
   const rowBackgroundGroups = useMemo(() => {
     const groups: Record<number, number> = {};
     if (!sortColumn || !data.length) return groups;
 
-    let currentGroupValue: any = null;
+    let currentGroupValue: unknown = null;
     let groupIndex = 0;
 
     data.forEach((row, index) => {
@@ -99,7 +86,7 @@ export function DataGridShadcn<T extends Record<string, any>>({
 
   useEffect(() => {
     onSelectedRowIndicesChange(selectedRows);
-  }, [selectedRows]);
+  }, [selectedRows, onSelectedRowIndicesChange]);
 
   const handleRowSelection = (rowIndex: number) => {
     setSelectedRows((prev) =>
@@ -117,7 +104,7 @@ export function DataGridShadcn<T extends Record<string, any>>({
     >
       <Table>
         <TableHeader className="border-b border-slate-200">
-          <TableRow className="h-16" key="header">
+          <TableRow className="h-16">
             {allowRowSelection && (
               <TableHead className="h-16 px-4 w-[50px]">
                 <Checkbox
@@ -125,7 +112,7 @@ export function DataGridShadcn<T extends Record<string, any>>({
                     setSelectedRows((prev) =>
                       prev.length === data.length
                         ? []
-                        : paginatedData.map((_, index) => index)
+                        : data.map((_, index) => index)
                     );
                   }}
                 />
@@ -160,7 +147,7 @@ export function DataGridShadcn<T extends Record<string, any>>({
                         <Image src="/icons/sort-up.svg" alt="" width={20} height={20} />
                       </button>
                       <button
-                        onClick={() => onOrderByChange("-" + column.accessorKey)}
+                        onClick={() => onOrderByChange("-" + String(column.accessorKey))}
                         className={cn(
                           "h-4 w-4 transition-opacity",
                           sortColumn === column.accessorKey && isDescSort
@@ -179,7 +166,7 @@ export function DataGridShadcn<T extends Record<string, any>>({
         </TableHeader>
 
         <TableBody>
-          {data?.length ? (
+          {data.length ? (
             data.map((row, rowIndex) => (
               <TableRow
                 key={rowIndex}
@@ -218,8 +205,7 @@ export function DataGridShadcn<T extends Record<string, any>>({
                         <div
                           className={cn(
                             "truncate",
-                            column.linkPattern &&
-                              "cursor-pointer text-ORANGE2 underline"
+                            column.linkPattern && "cursor-pointer text-ORANGE2 underline"
                           )}
                           onClick={() => {
                             if (column.linkPattern && cellValue !== undefined) {

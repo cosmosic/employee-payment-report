@@ -5,16 +5,17 @@ import { useEmployeeStore } from "@/app/lib/store";
 import DataGridShadcn, { SimpleColumnDef } from "@/app/_components/table";
 import { SummaryCard } from "@/app/_components/summary_card";
 
-interface RowData {
+interface RowData extends Record<string, unknown> {
   location: string;
   empId: number;
   name: string;
   collectionAmount: number | string;
-  collectionDate: string | string;
+  collectionDate: string;
   depositAmount: number | string;
-  depositDate: string | string;
+  depositDate: string;
   difference: number | string;
 }
+
 
 export default function PaymentReportPage() {
   const { employees, fetchEmployees } = useEmployeeStore();
@@ -29,30 +30,29 @@ export default function PaymentReportPage() {
     const collections = [...emp.collections].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     const deposits = [...emp.deposits].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-    let carryForward = 0;
     let depositIndex = 0;
 
     for (let i = 0; i < collections.length; i++) {
       const col = collections[i];
-      let colRemaining = col.amount - carryForward;
-      carryForward = 0;
+      let remaining = col.amount;
+      const depositRows: RowData[] = [];
 
-      while (depositIndex < deposits.length && colRemaining > 0) {
+      while (remaining > 0 && depositIndex < deposits.length) {
         const dep = deposits[depositIndex];
-        const usedAmount = Math.min(dep.amount, colRemaining);
+        const usedAmount = Math.min(dep.amount, remaining);
 
-        rows.push({
+        depositRows.push({
           location: emp.location,
           empId: emp.id,
           name: emp.name,
-          collectionAmount: col.amount,
-          collectionDate: col.date,
+          collectionAmount: depositRows.length === 0 ? col.amount : "",
+          collectionDate: depositRows.length === 0 ? col.date : "",
           depositAmount: usedAmount,
           depositDate: dep.date,
-          difference: col.amount > usedAmount ? col.amount - usedAmount : 0,
+          difference: "", // placeholder
         });
 
-        colRemaining -= usedAmount;
+        remaining -= usedAmount;
         dep.amount -= usedAmount;
 
         if (dep.amount === 0) {
@@ -60,7 +60,10 @@ export default function PaymentReportPage() {
         }
       }
 
-      if (colRemaining > 0) {
+      if (depositRows.length > 0) {
+        depositRows[depositRows.length - 1].difference = remaining > 0 ? remaining : 0;
+        rows.push(...depositRows);
+      } else {
         rows.push({
           location: emp.location,
           empId: emp.id,
@@ -69,7 +72,7 @@ export default function PaymentReportPage() {
           collectionDate: col.date,
           depositAmount: 0,
           depositDate: "-",
-          difference: colRemaining,
+          difference: col.amount,
         });
       }
     }

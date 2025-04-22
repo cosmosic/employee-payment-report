@@ -1,6 +1,6 @@
 import { RefObject, useEffect, useState } from "react";
 
-const useViewportHeightLeft = (ref: RefObject<HTMLElement>) => {
+const useViewportHeightLeft = (ref: RefObject<HTMLElement | null>) => {
   const [height, setHeight] = useState<string>("0px");
 
   useEffect(() => {
@@ -26,7 +26,7 @@ const useViewportHeightLeft = (ref: RefObject<HTMLElement>) => {
 
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
-  }, []);
+  }, [ref]);
 
   return { height };
 };
