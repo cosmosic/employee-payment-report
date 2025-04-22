@@ -30,9 +30,31 @@ export const useEmployeeStore = create<EmployeeStore>((set) => ({
   employees: [],
 
   fetchEmployees: async () => {
-    const res = await fetch("/api/employees");
-    const data = await res.json();
-    set({ employees: data });
+    try {
+      const res = await fetch("/api/employees");
+      const data = await res.json();
+
+      if (!Array.isArray(data)) {
+        console.error("Expected array but got:", data);
+        return;
+      }
+
+      // Optional: Validate structure of first item
+      if (
+        data.length &&
+        (typeof data[0].id !== "number" ||
+          typeof data[0].name !== "string" ||
+          !Array.isArray(data[0].collections) ||
+          !Array.isArray(data[0].deposits))
+      ) {
+        console.error("Invalid employee structure:", data[0]);
+        return;
+      }
+
+      set({ employees: data });
+    } catch (err) {
+      console.error("Failed to fetch employees:", err);
+    }
   },
 
   initializeEmployees: (initial) => set({ employees: initial }),

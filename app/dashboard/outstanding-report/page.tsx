@@ -6,7 +6,6 @@ import DataGridShadcn, { SimpleColumnDef } from "@/app/_components/table";
 import { SummaryCard } from "@/app/_components/summary_card";
 import { InsertEmployeeDataModal } from "@/app/_components/insert-data";
 
-// Define compatible row type
 interface RowData extends Record<string, unknown> {
   id: number;
   name: string;
@@ -27,11 +26,17 @@ export default function OutstandingReportPage() {
     { header: "Location", accessorKey: "location" },
     {
       header: "Net Collection",
-      cell: (_, row) => row.collections.reduce((sum, c) => sum + c.amount, 0),
+      cell: (_, row) =>
+        Array.isArray(row.collections)
+          ? row.collections.reduce((sum, c) => sum + (c?.amount || 0), 0)
+          : "-",
     },
     {
       header: "Deposited Till Date",
-      cell: (_, row) => row.deposits.reduce((sum, d) => sum + d.amount, 0),
+      cell: (_, row) =>
+        Array.isArray(row.deposits)
+          ? row.deposits.reduce((sum, d) => sum + (d?.amount || 0), 0)
+          : "-",
     },
     {
       header: "Last Transaction",
@@ -44,21 +49,38 @@ export default function OutstandingReportPage() {
     {
       header: "Difference",
       cell: (_, row) => {
-        const totalCol = row.collections.reduce((sum, c) => sum + c.amount, 0);
-        const totalDep = row.deposits.reduce((sum, d) => sum + d.amount, 0);
+        const totalCol = row.collections.reduce((sum, c) => sum + (c?.amount || 0), 0);
+        const totalDep = row.deposits.reduce((sum, d) => sum + (d?.amount || 0), 0);
         return totalCol - totalDep;
       },
     },
   ];
 
-  const totalCollection = employees.reduce(
-    (sum, e) => sum + e.collections.reduce((s, c) => s + c.amount, 0),
-    0
-  );
-  const totalDeposit = employees.reduce(
-    (sum, e) => sum + e.deposits.reduce((s, d) => s + d.amount, 0),
-    0
-  );
+  const totalCollection = Array.isArray(employees)
+    ? employees.reduce(
+        (sum, e) =>
+          sum + (Array.isArray(e.collections) ? e.collections.reduce((s, c) => s + (c?.amount || 0), 0) : 0),
+        0
+      )
+    : 0;
+
+  const totalDeposit = Array.isArray(employees)
+    ? employees.reduce(
+        (sum, e) =>
+          sum + (Array.isArray(e.deposits) ? e.deposits.reduce((s, d) => s + (d?.amount || 0), 0) : 0),
+        0
+      )
+    : 0;
+
+  const safeData: RowData[] = Array.isArray(employees)
+    ? employees.map((e) => ({
+        id: e.id,
+        name: e.name,
+        location: e.location,
+        collections: Array.isArray(e.collections) ? e.collections : [],
+        deposits: Array.isArray(e.deposits) ? e.deposits : [],
+      }))
+    : [];
 
   return (
     <div className="p-6">
@@ -73,8 +95,7 @@ export default function OutstandingReportPage() {
         <InsertEmployeeDataModal />
       </div>
 
-      <DataGridShadcn<RowData> data={employees as RowData[]} columns={columns} />
-
+      <DataGridShadcn<RowData> data={safeData} columns={columns} />
     </div>
   );
 }
