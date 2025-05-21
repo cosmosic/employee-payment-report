@@ -1,10 +1,11 @@
 "use client";
 
 import { useEmployeeStore } from "@/app/lib/store";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import DataGridShadcn, { SimpleColumnDef } from "@/app/_components/table";
 import { SummaryCard } from "@/app/_components/summary_card";
 import { InsertEmployeeDataModal } from "@/app/_components/insert-data";
+import { Loader2 } from "lucide-react";
 
 interface RowData extends Record<string, unknown> {
   id: number;
@@ -16,9 +17,20 @@ interface RowData extends Record<string, unknown> {
 
 export default function OutstandingReportPage() {
   const { employees, fetchEmployees } = useEmployeeStore();
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchEmployees();
+    const loadData = async () => {
+      try {
+        setLoading(true);
+        await fetchEmployees();
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
   }, [fetchEmployees]);
 
   const columns: SimpleColumnDef<RowData>[] = [
@@ -28,14 +40,14 @@ export default function OutstandingReportPage() {
       header: "Net Collection",
       cell: (_, row) =>
         Array.isArray(row.collections)
-          ? row.collections.reduce((sum, c) => sum + (c?.amount || 0), 0)
+          ? `₹${row.collections.reduce((sum, c) => sum + (c?.amount || 0), 0).toLocaleString()}`
           : "-",
     },
     {
       header: "Deposited Till Date",
       cell: (_, row) =>
         Array.isArray(row.deposits)
-          ? row.deposits.reduce((sum, d) => sum + (d?.amount || 0), 0)
+          ? `₹${row.deposits.reduce((sum, d) => sum + (d?.amount || 0), 0).toLocaleString()}`
           : "-",
     },
     {
@@ -51,7 +63,8 @@ export default function OutstandingReportPage() {
       cell: (_, row) => {
         const totalCol = row.collections.reduce((sum, c) => sum + (c?.amount || 0), 0);
         const totalDep = row.deposits.reduce((sum, d) => sum + (d?.amount || 0), 0);
-        return totalCol - totalDep;
+        const diff = totalCol - totalDep;
+        return `₹${Math.abs(diff).toLocaleString()} ${diff >= 0 ? "" : "(over)"}`;
       },
     },
   ];
@@ -82,12 +95,32 @@ export default function OutstandingReportPage() {
       }))
     : [];
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      </div>
+    );
+  }
+
   return (
     <div className="p-6">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-        <SummaryCard title="Total Collection (MM)" value={`₹${totalCollection}`} color="primary" />
-        <SummaryCard title="Total Deposit Amount" value={`₹${totalDeposit}`} color="success" />
-        <SummaryCard title="Difference Amount" value={`₹${totalCollection - totalDeposit}`} color="danger" />
+        <SummaryCard 
+          title="Total Collection (MM)" 
+          value={`₹${totalCollection.toLocaleString()}`} 
+          color="primary" 
+        />
+        <SummaryCard 
+          title="Total Deposit Amount" 
+          value={`₹${totalDeposit.toLocaleString()}`} 
+          color="success" 
+        />
+        <SummaryCard 
+          title="Difference Amount" 
+          value={`₹${(totalCollection - totalDeposit).toLocaleString()}`} 
+          color={totalCollection - totalDeposit >= 0 ? "danger" : "success"} 
+        />
       </div>
 
       <div className="flex items-center justify-between mb-4">
